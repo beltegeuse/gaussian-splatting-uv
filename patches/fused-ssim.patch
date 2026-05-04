@@ -1,3 +1,36 @@
+diff --git a/setup.py b/setup.py
+index fcffbbe..28739bb 100644
+--- a/setup.py
++++ b/setup.py
+@@ -1,6 +1,18 @@
++import os
+ from setuptools import setup
+ from torch.utils.cpp_extension import CUDAExtension, BuildExtension
+ 
++cxx_compiler_flags = []
++nvcc_compiler_flags = []
++
++if os.name != 'nt':
++    # GCC 16 + nvcc <= 13.x: libstdc++'s <functional> uses C++23 "deducing this"
++    # as a GNU extension on GCC 14+, and <bits/shared_ptr_base.h> uses
++    # __builtin_is_virtual_base_of. cudafe++ can't parse either.
++    gcc16_workarounds = ["-D_GLIBCXX_CLANG=1", "-D_GLIBCXX_DO_NOT_USE_BUILTIN_TRAITS=1"]
++    cxx_compiler_flags += gcc16_workarounds
++    nvcc_compiler_flags += gcc16_workarounds
++
+ setup(
+     name="fused_ssim",
+     packages=['fused_ssim'],
+@@ -9,7 +21,8 @@ setup(
+             name="fused_ssim_cuda",
+             sources=[
+             "ssim.cu",
+-            "ext.cpp"])
++            "ext.cpp"],
++            extra_compile_args={"nvcc": nvcc_compiler_flags, "cxx": cxx_compiler_flags})
+         ],
+     cmdclass={
+         'build_ext': BuildExtension
 diff --git a/ssim.cu b/ssim.cu
 index 7d211fc..fb47e40 100644
 --- a/ssim.cu

@@ -1,3 +1,38 @@
+diff --git a/setup.py b/setup.py
+index 580d2bd..5a43680 100644
+--- a/setup.py
++++ b/setup.py
+@@ -14,9 +14,17 @@ from torch.utils.cpp_extension import CUDAExtension, BuildExtension
+ import os
+ 
+ cxx_compiler_flags = []
++nvcc_compiler_flags = []
+ 
+ if os.name == 'nt':
+     cxx_compiler_flags.append("/wd4624")
++else:
++    # GCC 16 + nvcc <= 13.x: libstdc++'s <functional> uses C++23 "deducing this"
++    # as a GNU extension on GCC 14+, and <bits/shared_ptr_base.h> uses
++    # __builtin_is_virtual_base_of. cudafe++ can't parse either.
++    gcc16_workarounds = ["-D_GLIBCXX_CLANG=1", "-D_GLIBCXX_DO_NOT_USE_BUILTIN_TRAITS=1"]
++    cxx_compiler_flags += gcc16_workarounds
++    nvcc_compiler_flags += gcc16_workarounds
+ 
+ setup(
+     name="simple_knn",
+@@ -24,10 +32,10 @@ setup(
+         CUDAExtension(
+             name="simple_knn._C",
+             sources=[
+-            "spatial.cu", 
++            "spatial.cu",
+             "simple_knn.cu",
+             "ext.cpp"],
+-            extra_compile_args={"nvcc": [], "cxx": cxx_compiler_flags})
++            extra_compile_args={"nvcc": nvcc_compiler_flags, "cxx": cxx_compiler_flags})
+         ],
+     cmdclass={
+         'build_ext': BuildExtension
 diff --git a/spatial.cu b/spatial.cu
 index 1a6a654..207fc3a 100644
 --- a/spatial.cu

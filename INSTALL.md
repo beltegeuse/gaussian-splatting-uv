@@ -22,10 +22,11 @@ Wheel index: `https://download.pytorch.org/whl/cu130` (CUDA 13.0 binary build �
 
 ## One-time submodule patches
 
-The three CUDA submodules (`simple-knn`, `fused-ssim`, `diff-gaussian-rasterization`) were written for an older PyTorch / CUDA toolchain and do not build cleanly against PyTorch ≥ 2.4 with nvcc ≥ 13. Two issues:
+The three CUDA submodules (`simple-knn`, `fused-ssim`, `diff-gaussian-rasterization`) were written for an older PyTorch / CUDA toolchain and do not build cleanly against PyTorch ≥ 2.4 with nvcc ≥ 13. Three issues:
 
 1. **Removed `Tensor::data<T>()` API** — PyTorch removed `tensor.data<T>()` in 2.4+; the new spelling is `tensor.data_ptr<T>()`. ~50 call sites across the three submodules.
 2. **Missing `<cstdint>` includes** — `diff-gaussian-rasterization`'s headers use `uint32_t` / `uint64_t` / `std::uintptr_t` without including `<cstdint>`. Older toolchains pulled it in transitively; nvcc 13 is stricter.
+3. **GCC 16 + nvcc ≤ 13.2 incompatibility** — libstdc++ 16 unconditionally uses C++23 "deducing this" (`operator()(this _Self&& __self, ...)`) as a GNU extension on GCC 14+, and `<bits/shared_ptr_base.h>` calls `__builtin_is_virtual_base_of`. nvcc 13.2's `cudafe++` parser doesn't handle either. Each submodule's `setup.py` now passes `-D_GLIBCXX_CLANG=1 -D_GLIBCXX_DO_NOT_USE_BUILTIN_TRAITS=1` to both nvcc and the host C++ compiler, which gates these constructs out of the headers. The flags are no-ops on GCC ≤ 13.
 
 The fixes are captured as portable patch files under `patches/`:
 
@@ -114,3 +115,4 @@ The three submodules are tracked as independent git submodules pointing at upstr
 - **`ninja: error: subcommand failed`** during build: enable verbose output with `uv sync -v` and look at the actual nvcc error above the Python traceback.
 - **`libc10.so: cannot open shared object file`** when importing a submodule: `import torch` first in the same Python process — the torch import loads the C++ runtime libraries the extensions need.
 - **Mismatch warning between local nvcc and PyTorch's CUDA**: a minor-version mismatch (e.g. nvcc 13.2 vs PyTorch built against 13.0) is harmless. A major mismatch (nvcc 12 vs PyTorch cu130) will fail — install matching CUDA toolkit or switch wheel index.
+- **`error: expected a type specifier` in `<functional>` or `__builtin_is_virtual_base_of` undefined in `<bits/shared_ptr_base.h>`**: GCC ≥ 14 libstdc++ uses C++23 features that nvcc ≤ 13.2's `cudafe++` can't parse. The submodule `setup.py` files already pass the necessary `-D_GLIBCXX_CLANG=1 -D_GLIBCXX_DO_NOT_USE_BUILTIN_TRAITS=1` flags. If you see these errors, your patches probably weren't applied — re-run the patch loop in step 2.

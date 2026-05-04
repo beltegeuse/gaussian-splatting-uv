@@ -1,0 +1,37 @@
+[project]
+name = "gaussian-splatting"
+version = "0.1.0"
+description = "3D Gaussian Splatting for Real-Time Radiance Field Rendering"
+requires-python = ">=3.13"
+dependencies = [
+    "torch",
+    "torchvision",
+    "tqdm",
+    "plyfile",
+    "opencv-python",
+    "joblib",
+    "ninja",
+    "diff-gaussian-rasterization",
+    "simple-knn",
+    "fused-ssim",
+]
+
+[tool.uv]
+package = false
+no-build-isolation-package = [
+    "diff-gaussian-rasterization",
+    "simple-knn",
+    "fused-ssim",
+]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu130" }
+torchvision = { index = "pytorch-cu130" }
+diff-gaussian-rasterization = { path = "submodules/diff-gaussian-rasterization" }
+simple-knn = { path = "submodules/simple-knn" }
+fused-ssim = { path = "submodules/fused-ssim" }
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
